@@ -1,39 +1,57 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 const axios = require("axios");
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json()); // simpler than body-parser
 
-const VERIFY_TOKEN = "my_verify_token";
+// ======================
+// Environment Variables
+// ======================
+const VERIFY_TOKEN = "my_verify_token"; // same as in Meta webhook
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
-console.log('WHATSAPP_TOKEN:', process.env.WHATSAPP_TOKEN ? 'Loaded' : 'Missing');
-console.log('PHONE_NUMBER_ID:', process.env.PHONE_NUMBER_ID ? 'Loaded' : 'Missing');
+// Check env vars at startup
+if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
+  console.error("Error: WHATSAPP_TOKEN or PHONE_NUMBER_ID is missing!");
+  process.exit(1); // stop app if env vars are missing
+}
 
+console.log("WHATSAPP_TOKEN loaded ✔");
+console.log("PHONE_NUMBER_ID loaded ✔");
 
-/* Webhook verification */
+// ======================
+// Webhook Verification
+// ======================
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
+  console.log("Webhook verification request:", req.query);
+
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
+    console.log("Webhook verified successfully!");
     return res.status(200).send(challenge);
   }
+
+  console.warn("Webhook verification failed.");
   return res.sendStatus(403);
 });
 
-/* Receive messages */
+// ======================
+// Receive WhatsApp Messages
+// ======================
 app.post("/webhook", async (req, res) => {
+  console.log("Incoming webhook POST:", JSON.stringify(req.body, null, 2));
+
   const message =
     req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-  if (!message) return res.sendStatus(200);
+  if (!message) return res.sendStatus(200); // no message to process
 
   const from = message.from;
-  const text = message.text?.body?.toLowerCase();
+  const text = message.text?.body?.toLowerCase() || "";
 
   let reply = "Sorry, I didn't understand that.";
 
@@ -45,27 +63,33 @@ app.post("/webhook", async (req, res) => {
     reply = "You can contact us at support@example.com";
   }
 
-  await axios.post(
-    `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to: from,
-      text: { body: reply }
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json"
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        messaging_product: "whatsapp",
+        to: from,
+        text: { body: reply }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        }
       }
-    }
-  );
+    );
+    console.log(`Replied to ${from}: "${reply}"`);
+  } catch (err) {
+    console.error("Error sending message:", err.response?.data || err.message);
+  }
 
   res.sendStatus(200);
 });
 
+// ======================
+// Start Server
+// ======================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`WhatsApp bot running on port ${PORT}`);
 });
-
-
