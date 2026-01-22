@@ -9,6 +9,10 @@ const VERIFY_TOKEN = "my_verify_token";
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
+console.log('WHATSAPP_TOKEN:', process.env.WHATSAPP_TOKEN ? 'Loaded' : 'Missing');
+console.log('PHONE_NUMBER_ID:', process.env.PHONE_NUMBER_ID ? 'Loaded' : 'Missing');
+
+
 /* Webhook verification */
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -62,3 +66,4 @@ app.post("/webhook", async (req, res) => {
 app.listen(3000, () => {
   console.log("WhatsApp bot running on port 3000");
 });
+
