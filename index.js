@@ -2,12 +2,12 @@ const express = require("express");
 const axios = require("axios");
 
 const app = express();
-app.use(express.json()); // simpler than body-parser
+app.use(express.json()); // parse JSON body
 
 // ======================
 // Environment Variables
 // ======================
-const VERIFY_TOKEN = "my_verify_token"; // same as in Meta webhook
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN || "my_verify_token"; // same as in Meta webhook
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 
@@ -17,8 +17,15 @@ if (!WHATSAPP_TOKEN || !PHONE_NUMBER_ID) {
   process.exit(1); // stop app if env vars are missing
 }
 
-console.log("WHATSAPP_TOKEN loaded ✔");
-console.log("PHONE_NUMBER_ID loaded ✔");
+console.log("✅ WHATSAPP_TOKEN loaded");
+console.log("✅ PHONE_NUMBER_ID loaded");
+
+// ======================
+// Health Check Route
+// ======================
+app.get("/", (req, res) => {
+  res.send("WhatsApp bot is running ✅");
+});
 
 // ======================
 // Webhook Verification
@@ -31,11 +38,11 @@ app.get("/webhook", (req, res) => {
   console.log("Webhook verification request:", req.query);
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
-    console.log("Webhook verified successfully!");
+    console.log("✅ Webhook verified successfully!");
     return res.status(200).send(challenge);
   }
 
-  console.warn("Webhook verification failed.");
+  console.warn("⚠️ Webhook verification failed.");
   return res.sendStatus(403);
 });
 
@@ -48,7 +55,7 @@ app.post("/webhook", async (req, res) => {
   const message =
     req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-  if (!message) return res.sendStatus(200); // no message to process
+  if (!message) return res.sendStatus(200); // nothing to process
 
   const from = message.from;
   const text = message.text?.body?.toLowerCase() || "";
@@ -78,9 +85,9 @@ app.post("/webhook", async (req, res) => {
         }
       }
     );
-    console.log(`Replied to ${from}: "${reply}"`);
+    console.log(`✅ Replied to ${from}: "${reply}"`);
   } catch (err) {
-    console.error("Error sending message:", err.response?.data || err.message);
+    console.error("❌ Error sending message:", err.response?.data || err.message);
   }
 
   res.sendStatus(200);
@@ -91,5 +98,5 @@ app.post("/webhook", async (req, res) => {
 // ======================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`WhatsApp bot running on port ${PORT}`);
+  console.log(`🚀 WhatsApp bot running on port ${PORT}`);
 });
